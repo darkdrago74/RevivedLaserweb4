@@ -1,1 +1,49 @@
+# IDE and OS files
+.idea
+.vscode/
+!.vscode/extensions.json
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+install_report.log
+validation_run.log
+
+# Dependencies
+node_modules/
+node_modules_trash/
+client/node_modules/
+client/node_modules_trash/
+server/node_modules/
+server/node_modules_trash/
+
+
+# Build output
+dist/
+dist_trash/
+client/dist/
+client/dist_trash/
+server/dist/
+server/dist_trash/
+
+# Shell scripts
+dumbinitgit.sh
+install.sh
+lzrcnc_start.sh
+uninstall.sh
+validate.sh
+
+# Other
+LrzCnc logo.png
 dumbinitgit.sh
