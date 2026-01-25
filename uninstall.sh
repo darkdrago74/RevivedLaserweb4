@@ -52,11 +52,11 @@ echo "Starting Uninstall (Mode: $MODE)..."
 echo "Checking for running processes..."
 
 # Stop Systemd Service if exists
-if systemctl list-unit-files | grep -q revivedlaserweb4.service; then
+if systemctl list-unit-files | grep -q lzrcnc.service; then
     echo "Stopping and disabling systemd service..."
-    systemctl stop revivedlaserweb4
-    systemctl disable revivedlaserweb4
-    rm -f /etc/systemd/system/revivedlaserweb4.service
+    systemctl stop lzrcnc
+    systemctl disable lzrcnc
+    rm -f /etc/systemd/system/lzrcnc.service
     systemctl daemon-reload
     echo "Service removed."
 fi

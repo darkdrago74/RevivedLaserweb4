@@ -175,7 +175,7 @@ After=network.target
 Type=simple
 User=$USER_NAME
 WorkingDirectory=$APP_DIR
-ExecStart=$APP_DIR/server/node_modules/.bin/tsx $APP_DIR/server/src/index.ts
+ExecStart=$NODE_PATH $APP_DIR/server/dist/index.js
 Restart=always
 Environment=NODE_ENV=production
 

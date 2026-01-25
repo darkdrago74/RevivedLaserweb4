@@ -6,7 +6,9 @@ import { MachineInterface } from './machine/MachineInterface.js';
 import { MockController } from './machine/MockController.js';
 import camRoutes from './routes/cam.js';
 import materialRoutes from './routes/material.js'; // Assuming new material routes
+import settingsRoutes from './routes/settings.js'; // Import Settings Routes
 import { MaterialService } from './services/MaterialService.js'; // Added import for MaterialService
+import { SettingsService } from './services/SettingsService.js'; // Import SettingsService
 import { CamService } from './cam/CamService.js'; // Corrected import path
 import path from 'path'; // Added import for path module
 
@@ -30,9 +32,11 @@ server.register(fastifyStatic, {
 // Services
 const camService = new CamService();
 const materialService = new MaterialService(path.join(process.cwd(), 'data'));
+const settingsService = new SettingsService(path.join(process.cwd(), 'data')); // Instantiate SettingsService
 
 server.register(camRoutes, { camService });
 server.register(materialRoutes, { materialService });
+server.register(settingsRoutes, { settingsService }); // Register Settings Routes
 
 // SPA Fallback: serve index.html for unknown routes (React Router support)
 server.setNotFoundHandler((req, reply) => {

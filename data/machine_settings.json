@@ -1,0 +1,33 @@
+{
+    "workbench": {
+        "width": 300,
+        "height": 200,
+        "depth": 50,
+        "origin": "bottom-left",
+        "showWorkbench": true
+    },
+    "axes": {
+        "x": {
+            "visible": true,
+            "min": 0,
+            "max": 300,
+            "direction": 1,
+            "reversed": false
+        },
+        "y": {
+            "visible": true,
+            "min": 0,
+            "max": 200,
+            "direction": 1,
+            "reversed": false
+        },
+        "z": {
+            "visible": true,
+            "min": 0,
+            "max": 50,
+            "direction": 1,
+            "reversed": false
+        }
+    },
+    "macros": []
+}

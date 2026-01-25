@@ -10,6 +10,7 @@ import { Activity } from 'lucide-react';
 
 import { Sidebar } from './components/Sidebar';
 import { BackgroundFX } from './components/BackgroundFX';
+import MachineSettingsPanel from './components/MachineSettingsPanel';
 
 const API_URL = 'http://localhost:3000';
 
@@ -204,46 +205,11 @@ function App() {
           </div>
         );
       case 'settings':
-        return (
-          <div className="p-4 space-y-6">
-            <div className="bg-slate-800/50 p-4 rounded-lg border border-white/10">
-              <h3 className="text-md font-semibold text-white mb-4">Visualizer Settings</h3>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300">Background Laser Beam</span>
-                <button
-                  onClick={() => setLaserBeamEnabled(!laserBeamEnabled)}
-                  className={`w-12 h-6 rounded-full transition-colors relative ${laserBeamEnabled ? 'bg-cyan-500' : 'bg-gray-600'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${laserBeamEnabled ? 'left-7' : 'left-1'}`} />
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Show cosmetic laser beam animation in the background.
-              </p>
-            </div>
-
-            <div className="bg-slate-800/50 p-4 rounded-lg border border-white/10">
-              <h3 className="text-md font-semibold text-white mb-4">System Info</h3>
-              <div className="space-y-2 text-sm text-gray-300">
-                <div className="flex justify-between">
-                  <span>Server URL:</span>
-                  <span className="font-mono text-cyan-400">{(status as any).ip ? `${(status as any).ip}:3000` : window.location.host}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Client Version:</span>
-                  <span className="font-mono">v1.0.0</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Mode:</span>
-                  <span className="font-mono">{status.state === 'Disconnected' ? 'Offline' : 'Online'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Future settings can go here */}
-          </div>
-        );
+        return <MachineSettingsPanel
+          status={status}
+          laserBeamEnabled={laserBeamEnabled}
+          setLaserBeamEnabled={setLaserBeamEnabled}
+        />;
       default:
         return null;
     }
