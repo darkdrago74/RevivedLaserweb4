@@ -1,5 +1,5 @@
 # LzrCnc
-![LzrCnc Logo](LrzCnc logo.png)
+![LzrCnc Logo](./LrzCnc%20logo.png)
 
 **LzrCnc** is a modern, web-based CNC/Laser control server designed for Raspberry Pi (Debian Bookworm/Trixie) and Linux systems. It supports GRBL (Serial) and Klipper (Moonraker) controllers.
 
