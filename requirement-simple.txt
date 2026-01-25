@@ -1,0 +1,6 @@
+nodejs
+npm
+build-essential
+python3
+udev
+curl

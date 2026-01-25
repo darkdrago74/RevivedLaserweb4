@@ -1,0 +1,16 @@
+==========================================
+LzrCnc Installation Report
+Date: Fri Jan 23 11:07:24 PM CET 2026
+==========================================
+
+[23:07:24] [SKIPPED] nodejs: Existing Node.js 22.21.1 found (>=20).
+[23:07:24] [SKIPPED] npm: Existing Node.js 22.21.1 found (>=20).
+[23:07:24] [FAILED] build-essential: apt-get not found.
+[23:07:24] [FAILED] python3: apt-get not found.
+[23:07:24] [FAILED] udev: apt-get not found.
+[23:07:24] [CHECK] Node.js: Version 22.21.1 is valid.
+[23:07:38] [INSTALLED] npm-root: Root dependencies installed.
+[23:07:40] [INSTALLED] npm-server: Server dependencies installed.
+[23:07:46] [BUILT] server: Build successful.
+[23:07:49] [INSTALLED] npm-client: Client dependencies installed.
+[23:08:12] [BUILT] client: Client build successful.

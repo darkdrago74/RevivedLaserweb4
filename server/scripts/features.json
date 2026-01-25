@@ -1,0 +1,119 @@
+[
+    {
+        "category": "CAM",
+        "name": "Raster Image Support",
+        "description": "Convert JPG/PNG to G-code",
+        "keywords": [
+            "sharp",
+            "raster",
+            "image processing",
+            "grayscale"
+        ]
+    },
+    {
+        "category": "CAM",
+        "name": "Vector Support",
+        "description": "Convert SVG/DXF to G-code",
+        "keywords": [
+            "svg",
+            "dxf",
+            "vector",
+            "path generation"
+        ]
+    },
+    {
+        "category": "CAM",
+        "name": "Materials Library",
+        "description": "Database of feed/speed settings for materials",
+        "keywords": [
+            "material",
+            "library",
+            "database",
+            "presets"
+        ]
+    },
+    {
+        "category": "Control",
+        "name": "Machine Connection",
+        "description": "Connect to GRBL/Klipper",
+        "keywords": [
+            "serialport",
+            "websocket",
+            "connect",
+            "baud"
+        ]
+    },
+    {
+        "category": "Control",
+        "name": "Jogging",
+        "description": "Manual axis movement controls",
+        "keywords": [
+            "jog",
+            "G0",
+            "G1",
+            "move"
+        ]
+    },
+    {
+        "category": "Control",
+        "name": "Homing",
+        "description": "Return to machine zero (G28)",
+        "keywords": [
+            "homing",
+            "G28",
+            "$H"
+        ]
+    },
+    {
+        "category": "Control",
+        "name": "Z-Probe",
+        "description": "Probe for Z-height (G38.2)",
+        "keywords": [
+            "probe",
+            "G38",
+            "touch plate"
+        ]
+    },
+    {
+        "category": "Control",
+        "name": "Macros",
+        "description": "User defined G-code scripts",
+        "keywords": [
+            "macro",
+            "script",
+            "custom command"
+        ]
+    },
+    {
+        "category": "Control",
+        "name": "Terminal",
+        "description": "Direct G-code console",
+        "keywords": [
+            "terminal",
+            "console",
+            "log",
+            "history"
+        ]
+    },
+    {
+        "category": "UI",
+        "name": "Drag & Drop",
+        "description": "File upload via drag and drop",
+        "keywords": [
+            "dropzone",
+            "drag",
+            "upload"
+        ]
+    },
+    {
+        "category": "UI",
+        "name": "Visualizer",
+        "description": "2D/3D Preview of G-code",
+        "keywords": [
+            "canvas",
+            "three",
+            "preview",
+            "render"
+        ]
+    }
+]
