@@ -18,7 +18,7 @@
 Calculates dependencies, installs them, and sets up the server.
 
 ```bash
-git clone https://github.com/your-repo/LzrCnc.git
+git clone https://github.com/darkdrago74/LzrCnc.git
 cd LzrCnc
 sudo ./install.sh
 ```
