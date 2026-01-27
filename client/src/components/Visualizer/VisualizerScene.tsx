@@ -23,15 +23,30 @@ const VisualizerScene: React.FC<VisualizerSceneProps> = ({ machinePos, limits, g
     const [is2D, setIs2D] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Calculate Bed Center
-    const xMax = limits?.x?.max || 200;
-    const yMax = limits?.y?.max || 200;
-
-    // Mapped Center in World Space (Rotated -90 X)
-    // CNC (x, y, 0) -> World (x, 0, y)
-    const centerWorld = [xMax / 2, 0, yMax / 2] as [number, number, number];
-
+    // Dimensions from Settings (Priority) or Limits (Fallback)
+    const width = machineSettings?.workbench?.width || limits?.x?.max || 200;
+    const height = machineSettings?.workbench?.height || limits?.y?.max || 200;
     const origin = machineSettings?.workbench?.origin || 'bottom-left';
+
+    // Calculate Offset based on Origin (Matches MachineBed logic)
+    // This determines the geometric center of the bed in CNC coordinates (relative to Origin 0,0)
+    let centerX = width / 2;
+    let centerY = height / 2;
+
+    if (origin === 'top-left') {
+        centerX = width / 2;
+        centerY = -height / 2;
+    } else if (origin === 'top-right') {
+        centerX = -width / 2;
+        centerY = -height / 2;
+    } else if (origin === 'bottom-right') {
+        centerX = -width / 2;
+        centerY = height / 2;
+    }
+
+    // Map CNC Center (x, y, 0) to World Space (x, 0, y) due to -90deg X rotation of the group
+    // Correction: -90deg rotation maps CNC +Y to World -Z. So CNC -150 becomes World +150.
+    const centerWorld = [centerX, 0, -centerY] as [number, number, number];
 
     return (
         <div
@@ -49,15 +64,15 @@ const VisualizerScene: React.FC<VisualizerSceneProps> = ({ machinePos, limits, g
                         zoom={10}
                         near={-5000}
                         far={5000}
-                        up={[0, 0, -1]} // Adjust up vector for 2D orientation if needed
+                        up={[0, 0, -1]}
                     />
                 ) : (
                     <PerspectiveCamera
                         key="3d-cam"
                         makeDefault
-                        // Isometric: Center X, High Y (Up), Positive Z (Front)
-                        position={[xMax / 2, Math.max(xMax, yMax) * 1.5, yMax * 1.5]}
-                        up={[0, 1, 0]} // Standard Three.js Up
+                        // Isometric: Center + Offset
+                        position={[centerX, Math.max(width, height) * 1.5, -centerY + Math.max(width, height) * 1.5]}
+                        up={[0, 1, 0]}
                         fov={45}
                         near={1}
                         far={5000}
@@ -88,11 +103,20 @@ const VisualizerScene: React.FC<VisualizerSceneProps> = ({ machinePos, limits, g
                     />
                 </EffectComposer>
 
-                {/* Background Laser Animation (Screen Space or World Space?) - Keep as is for now */}
+                {/* Background Laser Animation */}
                 {laserBeamEnabled && (
                     <>
-                        <BackgroundLaser delay={0} />
-                        <BackgroundLaser delay={3.5} />
+                        {/* Sky Lasers (Vertical Rain) - "Wall" at Y=1000 (Z=-1000), X +/- 1000, Y +2500 to -3500 */}
+                        <group position={[0, -500, -1000]}>
+                            <BackgroundLaser delay={0} spawnMode="vertical" height={6000} xRange={2000} zRange={100} particleSize={9} />
+                            <BackgroundLaser delay={3.5} spawnMode="vertical" height={6000} xRange={2000} zRange={100} particleSize={9} />
+                        </group>
+
+                        {/* Bed Lasers (Flat on Floor) - Y=-20mm */}
+                        <group position={[0, -20, 0]}>
+                            <BackgroundLaser delay={1.5} spawnMode="flat" xRange={width || 300} zRange={height || 300} />
+                            <BackgroundLaser delay={5.0} spawnMode="flat" xRange={width || 300} zRange={height || 300} />
+                        </group>
                     </>
                 )}
 
@@ -100,6 +124,8 @@ const VisualizerScene: React.FC<VisualizerSceneProps> = ({ machinePos, limits, g
                 <group rotation={[-Math.PI / 2, 0, 0]}>
                     <MachineBed
                         limits={limits}
+                        width={width}
+                        height={height}
                         visible={machineSettings?.workbench?.showWorkbench}
                         origin={origin}
                         axesSettings={machineSettings?.axes}
@@ -129,7 +155,7 @@ const VisualizerScene: React.FC<VisualizerSceneProps> = ({ machinePos, limits, g
                     onClick={() => window.location.reload()}
                     className="bg-gray-800 hover:bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 shadow-md font-bold"
                 >
-                    RESET VIEW
+                    RECENTER VIEW
                 </button>
             </div>
         </div>

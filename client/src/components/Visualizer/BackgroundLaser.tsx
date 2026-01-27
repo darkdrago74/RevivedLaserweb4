@@ -4,12 +4,16 @@ import * as THREE from 'three';
 
 interface BackgroundLaserProps {
     delay?: number;
+    spawnMode?: 'vertical' | 'flat'; // vertical = Y-aligned falling, flat = X/Z aligned
+    xRange?: number; // Scatter range along X
+    zRange?: number; // Scatter range along Z
+    height?: number; // Beam length
+    particleSize?: number; // Size of particles
 }
 
-export const BackgroundLaser = ({ delay = 0 }: BackgroundLaserProps) => {
+export const BackgroundLaser = ({ delay = 0, spawnMode = 'vertical', xRange = 200, zRange = 200, height = 2000, particleSize = 3 }: BackgroundLaserProps) => {
     const groupRef = useRef<THREE.Group>(null);
     const beamRef = useRef<THREE.Mesh>(null);
-
     const particlesRef = useRef<THREE.Points>(null);
 
     // Animation State
@@ -22,34 +26,30 @@ export const BackgroundLaser = ({ delay = 0 }: BackgroundLaserProps) => {
     const CYCLE_Duration = {
         HIDDEN: 1.0,
         FADE_IN: 0.5,
-        VISIBLE: 1.5,
+        VISIBLE: 3.5, // Longer visibility
         FADE_OUT: 0.5
     };
 
     // Particles Data
-    const particleCount = 50; // Increased count
+    const particleCount = 50;
     const particlesGeometry = useMemo(() => {
         const geo = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
         const sizes = new Float32Array(particleCount);
 
-        // Spread particles along a long line (Y-axis to match Cylinder default)
-        // Cylinder default is Y-axis. We rotate group Z=90 to make it Horizontal.
-        // So particles should be spread along Y-axis to match cylinder geometry space.
         for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * 20; // X Scatter (Width)
-            positions[i * 3 + 1] = (Math.random() - 0.5) * 2000; // Y Length (Along beam)
-            positions[i * 3 + 2] = (Math.random() - 0.5) * 20; // Z Scatter (Height)
+            positions[i * 3] = (Math.random() - 0.5) * 10; // Width Scatter
+            positions[i * 3 + 1] = (Math.random() - 0.5) * height; // Length (Y)
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 10; // Depth Scatter
             sizes[i] = Math.random() * 3;
         }
 
         geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
         return geo;
-    }, []);
+    }, [height]);
 
     useFrame((_, delta) => {
-        // Handle Initial Delay
         if (initialDelay.current > 0) {
             initialDelay.current -= delta;
             return;
@@ -57,20 +57,29 @@ export const BackgroundLaser = ({ delay = 0 }: BackgroundLaserProps) => {
 
         timer.current += delta;
 
+        // Lifecycle Logic
         switch (cycleState) {
             case 'HIDDEN':
                 opacity.current = 0;
                 if (timer.current > CYCLE_Duration.HIDDEN) {
-                    // Start new cycle: Randomize Position/Rotation
                     if (groupRef.current) {
-                        groupRef.current.position.set(0, 0, -10); // Behind bed (Very Close)
-                        groupRef.current.rotation.z = Math.random() * Math.PI * 2;
+                        // Reset Position Logic
+                        const x = (Math.random() - 0.5) * xRange;
+                        const z = (Math.random() - 0.5) * zRange;
 
-                        // Random offset
-                        const offsetX = (Math.random() - 0.5) * 200;
-                        const offsetY = (Math.random() - 0.5) * 200;
-                        groupRef.current.position.x += offsetX;
-                        groupRef.current.position.y += offsetY;
+                        // Default to center
+                        groupRef.current.position.set(0, 0, 0);
+                        groupRef.current.rotation.set(0, 0, 0);
+
+                        if (spawnMode === 'vertical') {
+                            // Rain falling: Random X/Z, fixed Y (handled by parent or center)
+                            groupRef.current.position.set(x, 0, z);
+                        } else {
+                            // Flat
+                            groupRef.current.position.set(x, 0, z);
+                            groupRef.current.rotation.x = Math.PI / 2;
+                            groupRef.current.rotation.z = Math.random() * Math.PI; // Random angle on floor
+                        }
                     }
                     timer.current = 0;
                     setCycleState('FADE_IN');
@@ -102,40 +111,35 @@ export const BackgroundLaser = ({ delay = 0 }: BackgroundLaserProps) => {
                 break;
         }
 
-        // 2. Particle Animation (Sliding)
+        // Particle Animation (Falling Down for Vertical, Sliding for Flat)
         if (particlesRef.current && cycleState !== 'HIDDEN') {
             const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
-            const speed = 20 * delta; // Speed of sliding
+            // Downward speed (-Y)
+            const speed = -500 * delta; // Fast "Laser Speed"
 
             for (let i = 0; i < particleCount; i++) {
-                // Y-axis is along the beam length (local space)
                 positions[i * 3 + 1] += speed;
 
-                // Loop particles when they reach end
-                if (positions[i * 3 + 1] > 1000) {
-                    positions[i * 3 + 1] = -1000;
+                // Loop
+                if (positions[i * 3 + 1] < -height / 2) {
+                    positions[i * 3 + 1] = height / 2;
                 }
             }
             particlesRef.current.geometry.attributes.position.needsUpdate = true;
         }
 
-        // 3. Apply Opacity
-        if (beamRef.current) {
-            (beamRef.current.material as THREE.Material).opacity = opacity.current; // Core is solid
-        }
-
-        if (particlesRef.current) {
-            (particlesRef.current.material as THREE.Material).opacity = opacity.current;
-        }
+        // Opacity Update
+        if (beamRef.current) (beamRef.current.material as THREE.Material).opacity = opacity.current;
+        if (particlesRef.current) (particlesRef.current.material as THREE.Material).opacity = opacity.current;
     });
 
     return (
         <group ref={groupRef}>
-            {/* The Single Beam */}
-            <mesh ref={beamRef} rotation={[0, 0, Math.PI / 2]}>
-                <cylinderGeometry args={[0.6, 0.6, 2000, 16]} />
+            {/* Cylinder Geometry - Y Aligned Default */}
+            <mesh ref={beamRef}>
+                <cylinderGeometry args={[0.6, 0.6, height, 16]} />
                 <meshBasicMaterial
-                    color="#00FFFF" // Cyan for visibility
+                    color="#00FFFF"
                     transparent
                     opacity={0}
                     blending={THREE.AdditiveBlending}
@@ -143,10 +147,9 @@ export const BackgroundLaser = ({ delay = 0 }: BackgroundLaserProps) => {
                 />
             </mesh>
 
-            {/* Particles along the beam - Rotated to match Cylinder */}
-            <points ref={particlesRef} geometry={particlesGeometry} rotation={[0, 0, Math.PI / 2]}>
+            <points ref={particlesRef} geometry={particlesGeometry}>
                 <pointsMaterial
-                    size={3}
+                    size={particleSize}
                     color="#00ffff"
                     transparent
                     opacity={0}

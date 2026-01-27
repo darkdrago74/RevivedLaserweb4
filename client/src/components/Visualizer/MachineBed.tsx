@@ -8,14 +8,16 @@ interface MachineBedProps {
         y: { min: number, max: number };
         z: { min: number, max: number };
     };
+    width?: number;
+    height?: number;
     visible?: boolean;
     origin?: 'bottom-left' | 'top-left' | 'top-right' | 'bottom-right';
 }
 
-const MachineBed: React.FC<MachineBedProps & { axesSettings?: any }> = ({ limits, visible = true, origin = 'bottom-left', axesSettings }) => {
-    // defaults
-    const xMax = limits?.x?.max || 200;
-    const yMax = limits?.y?.max || 200;
+const MachineBed: React.FC<MachineBedProps & { axesSettings?: any }> = ({ limits, width, height, visible = true, origin = 'bottom-left', axesSettings }) => {
+    // defaults: prioritize passed width/height, then limits, then 200 fallback
+    const xMax = width || limits?.x?.max || 200;
+    const yMax = height || limits?.y?.max || 200;
 
     // Calculate Offset based on Origin
     let xOffset = xMax / 2;
