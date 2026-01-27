@@ -12,7 +12,7 @@ import { Sidebar } from './components/Sidebar';
 import { BackgroundFX } from './components/BackgroundFX';
 import MachineSettingsPanel from './components/MachineSettingsPanel';
 
-const API_URL = 'http://localhost:3000';
+const API_URL = import.meta.env.DEV ? 'http://localhost:3000' : '';
 
 function App() {
   const [status, setStatus] = useState<MachineStatus>({
@@ -28,11 +28,19 @@ function App() {
     setGcode(generated.split('\n'));
     setActiveTab('gcode'); // Auto-switch to GCode view
   };
+
+  // Live Preview Settings (overrides server status while editing)
+  const [draftSettings, setDraftSettings] = useState<any>(null); // Type as any or MachineSettings if imported
+
   // const [lastPing, setLastPing] = useState<Date>(new Date());
+
+  // ...
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/status`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
       // Safety: Ensure pos exists if server returns partial status (e.g. Disconnected)
@@ -41,12 +49,19 @@ function App() {
         ...data,
         pos: data.pos || prev.pos || { x: 0, y: 0, z: 0 }
       }));
-    } catch {
-      // console.error(e);
+      setConnectionError(null);
+    } catch (e: any) {
+      console.error("Fetch Status Error:", e);
+      setConnectionError(e.message || "Connection Failed");
     }
   }, []);
 
+  // ...
+
+
+
   useEffect(() => {
+    fetchStatus(); // Immediate fetch on mount
     const timer = setInterval(fetchStatus, 500);
     return () => clearInterval(timer);
   }, [fetchStatus]);
@@ -209,6 +224,7 @@ function App() {
           status={status}
           laserBeamEnabled={laserBeamEnabled}
           setLaserBeamEnabled={setLaserBeamEnabled}
+          onSettingsChange={setDraftSettings}
         />;
       default:
         return null;
@@ -254,13 +270,38 @@ function App() {
       )}
 
       {/* 3. Main Content (Visualizer) */}
-      <div className="flex-1 relative bg-black/40">
-        <VisualizerScene
-          machinePos={status.pos}
-          limits={status.limits}
-          gcode={gcode}
-          laserBeamEnabled={laserBeamEnabled}
-        />
+      <div className="flex-1 relative bg-black/40 flex flex-col">
+        {!status.machineSettings ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-4">
+            {connectionError ? (
+              <div className="bg-red-900/50 p-6 rounded-lg border border-red-500/30 max-w-md text-center">
+                <div className="text-red-400 font-bold mb-2">Connection Error</div>
+                <div className="font-mono text-sm text-gray-300 mb-4">{connectionError}</div>
+                <div className="text-xs text-gray-600">Checking: {API_URL || 'Current Host'}/status</div>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-4 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded text-sm font-bold"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="animate-spin w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
+                <span className="animate-pulse">Loading configurations...</span>
+                <span className="text-xs text-gray-600">Waiting for server...</span>
+              </>
+            )}
+          </div>
+        ) : (
+          <VisualizerScene
+            machinePos={status.pos}
+            limits={status.limits}
+            gcode={gcode}
+            laserBeamEnabled={laserBeamEnabled}
+            machineSettings={draftSettings || status.machineSettings}
+          />
+        )}
 
         {/* Overlay Status Bar */}
         <div className="absolute top-4 right-4 flex gap-4 pointer-events-none">

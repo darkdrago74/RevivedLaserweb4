@@ -76,12 +76,28 @@ if command -v node &> /dev/null; then
 fi
 
 if [ "$CURRENT_NODE_VALID" = false ]; then
-    echo "Installing Node.js v24 via NodeSource..."
+    ARCH=$(dpkg --print-architecture 2>/dev/null || uname -m)
+    echo "Detected Architecture: $ARCH"
+
+    NODE_MAJOR_VERSION="24"
+    
+    # Check for 32-bit ARM (armhf/armv7l)
+    if [[ "$ARCH" == "armhf" || "$ARCH" == "armv7l" ]]; then
+        echo "----------------------------------------------------------------"
+        echo "WARNING: 32-bit ARM ($ARCH) detected."
+        echo "Node.js 24 is not supported on 32-bit ARM by NodeSource."
+        echo "RECOMMENDATION: Use Raspberry Pi OS 64-bit (arm64) for best performance."
+        echo "----------------------------------------------------------------"
+        echo "Falling back to Node.js 20 (LTS) for compatibility..."
+        NODE_MAJOR_VERSION="20"
+    fi
+
+    echo "Installing Node.js v${NODE_MAJOR_VERSION} via NodeSource..."
     # 1. Download and run the setup script
-    if curl -fsSL https://deb.nodesource.com/setup_24.x | bash -; then
+    if curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR_VERSION}.x | bash -; then
         # 2. Install nodejs
         if apt-get install -y nodejs; then
-            log_action "INSTALLED" "Node.js" "Successfully installed v24."
+            log_action "INSTALLED" "Node.js" "Successfully installed v${NODE_MAJOR_VERSION}."
         else
             log_action "FAILED" "Node.js" "apt-get install nodejs failed."
             exit 1
@@ -156,7 +172,11 @@ fi
 
 # 6. Setup Autoboot (Systemd)
 echo "------------------------------------------"
-read -p "Do you want LzrCnc to start automatically on boot? [y/N] " response
+if [ -n "$AUTOBOOT" ]; then
+    response="$AUTOBOOT"
+else
+    read -p "Do you want LzrCnc to start automatically on boot? [y/N] " response
+fi
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     echo "Configuring Systemd Service..."
     

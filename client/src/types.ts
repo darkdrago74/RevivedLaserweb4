@@ -17,6 +17,38 @@ export interface MachineStatus {
         z: { min: number, max: number };
     };
     macros?: string[];
+    machineSettings?: MachineSettings;
+}
+
+export interface AxisSettings {
+    visible: boolean;
+    min: number;
+    max: number;
+    offset: number;
+    direction: number;
+    reversed: boolean;
+    endstops: {
+        hasMin: boolean;
+        hasMax: boolean;
+    };
+}
+
+export interface WorkbenchSettings {
+    width: number;
+    height: number;
+    depth: number;
+    origin: 'bottom-left' | 'top-left' | 'top-right' | 'bottom-right';
+    showWorkbench: boolean;
+}
+
+export interface MachineSettings {
+    workbench: WorkbenchSettings;
+    axes: {
+        x: AxisSettings;
+        y: AxisSettings;
+        z: AxisSettings;
+    };
+    macros: any[];
 }
 
 // CAM Types

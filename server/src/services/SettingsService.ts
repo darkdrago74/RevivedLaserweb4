@@ -5,15 +5,20 @@ export interface AxisSettings {
     visible: boolean;
     min: number;
     max: number;
+    offset: number; // Offset from marker (Home/Origin)
     direction: number; // 1 or -1
     reversed: boolean;
+    endstops: {
+        hasMin: boolean;
+        hasMax: boolean;
+    };
 }
 
 export interface WorkbenchSettings {
     width: number;
     height: number;
     depth: number;
-    origin: 'bottom-left' | 'top-left' | 'center'; // Simplified origin options
+    origin: 'bottom-left' | 'top-left' | 'top-right' | 'bottom-right'; // Corner-only origins
     showWorkbench: boolean;
 }
 
@@ -36,9 +41,9 @@ const DEFAULT_SETTINGS: MachineSettings = {
         showWorkbench: true
     },
     axes: {
-        x: { visible: true, min: 0, max: 300, direction: 1, reversed: false },
-        y: { visible: true, min: 0, max: 200, direction: 1, reversed: false },
-        z: { visible: true, min: 0, max: 50, direction: 1, reversed: false }
+        x: { visible: true, min: 0, max: 300, offset: 0, direction: 1, reversed: false, endstops: { hasMin: true, hasMax: false } },
+        y: { visible: true, min: 0, max: 200, offset: 0, direction: 1, reversed: false, endstops: { hasMin: true, hasMax: false } },
+        z: { visible: true, min: 0, max: 50, offset: 0, direction: 1, reversed: false, endstops: { hasMin: true, hasMax: true } }
     },
     macros: []
 };
@@ -52,18 +57,27 @@ export class SettingsService {
     }
 
     async getSettings(): Promise<MachineSettings> {
+        // console.log('[SettingsService] getSettings called. Cached:', !!this.settings);
         if (this.settings) return this.settings;
 
         try {
+            console.log('[SettingsService] Reading from:', this.settingsPath);
             const data = await fs.readFile(this.settingsPath, 'utf-8');
             this.settings = JSON.parse(data);
+            console.log('[SettingsService] Parsed settings. Keys:', Object.keys(this.settings || {}));
         } catch (error) {
+            console.error('[SettingsService] Error loading settings:', error);
             // If file doesn't exist, create it with defaults
-            console.log('Settings file not found, creating default.');
+            console.log('[SettingsService] Creating default settings.');
             this.settings = DEFAULT_SETTINGS;
             await this.saveSettings(this.settings);
         }
-        return this.settings!;
+
+        if (!this.settings) {
+            console.error('[SettingsService] CRITICAL: Settings are null after load/create!');
+            return DEFAULT_SETTINGS;
+        }
+        return this.settings;
     }
 
     async saveSettings(newSettings: Partial<MachineSettings>): Promise<MachineSettings> {

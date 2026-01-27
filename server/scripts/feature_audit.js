@@ -55,7 +55,7 @@ SCAN_DIRS.forEach(dir => {
 console.log(`Scanned ${fileContents.length} files.`);
 
 // Audit Features
-let report = `# RevivedLaserweb4 Feature Gap Analysis\n\n`;
+let report = `# LzrCnc Feature Gap Analysis\n\n`;
 report += `**Generated:** ${new Date().toLocaleString()}\n\n`;
 report += `| Category | Feature | Status | Evidence (Files) |\n`;
 report += `|----------|---------|--------|------------------|\n`;

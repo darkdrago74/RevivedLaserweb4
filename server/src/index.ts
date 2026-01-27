@@ -1,4 +1,5 @@
 import Fastify, { FastifyInstance } from 'fastify';
+import fs from 'fs';
 import cors from '@fastify/cors';
 import { GrblController } from './machine/GrblController.js';
 import { KlipperController } from './machine/KlipperController.js';
@@ -22,8 +23,10 @@ server.register(cors, {
     origin: '*'
 });
 
+import { resolvePath } from './utils/pathUtils.js';
+
 // Serve frontend static files
-const distPath = path.join(process.cwd(), '../client/dist');
+const distPath = resolvePath('client/dist');
 server.register(fastifyStatic, {
     root: distPath,
     prefix: '/', // Start serving from root
@@ -31,8 +34,15 @@ server.register(fastifyStatic, {
 
 // Services
 const camService = new CamService();
-const materialService = new MaterialService(path.join(process.cwd(), 'data'));
-const settingsService = new SettingsService(path.join(process.cwd(), 'data')); // Instantiate SettingsService
+const dataDir = resolvePath('data');
+// Ensure data dir exists
+if (!fs.existsSync(dataDir)) {
+    console.warn(`Data directory not found at ${dataDir}, creating it...`);
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+
+const materialService = new MaterialService(dataDir);
+const settingsService = new SettingsService(dataDir); // Instantiate SettingsService
 
 server.register(camRoutes, { camService });
 server.register(materialRoutes, { materialService });
@@ -71,7 +81,7 @@ function getNetworkIp() {
 server.get('/ping', async (request, reply) => {
     return {
         status: 'ok',
-        message: 'RevivedLaserweb4 Server Online',
+        message: 'LzrCnc Server Online',
         sim: isSim,
         ip: getNetworkIp()
     };
@@ -133,7 +143,8 @@ server.post('/jog', async (request: any, reply) => {
 
 server.get('/status', async (request, reply) => {
     const status = machine ? machine.getStatus() : { state: 'Disconnected' };
-    return { ...status, ip: getNetworkIp() };
+    const settings = await settingsService.getSettings();
+    return { ...status, ip: getNetworkIp(), machineSettings: settings };
 });
 
 const start = async () => {

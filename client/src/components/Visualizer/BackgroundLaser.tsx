@@ -20,14 +20,14 @@ export const BackgroundLaser = ({ delay = 0 }: BackgroundLaserProps) => {
 
     // Constants
     const CYCLE_Duration = {
-        HIDDEN: 2.0,
-        FADE_IN: 1.0,
-        VISIBLE: 3.0,
-        FADE_OUT: 1.5
+        HIDDEN: 1.0,
+        FADE_IN: 0.5,
+        VISIBLE: 1.5,
+        FADE_OUT: 0.5
     };
 
     // Particles Data
-    const particleCount = 20; // Reduced count
+    const particleCount = 50; // Increased count
     const particlesGeometry = useMemo(() => {
         const geo = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
@@ -63,7 +63,7 @@ export const BackgroundLaser = ({ delay = 0 }: BackgroundLaserProps) => {
                 if (timer.current > CYCLE_Duration.HIDDEN) {
                     // Start new cycle: Randomize Position/Rotation
                     if (groupRef.current) {
-                        groupRef.current.position.set(0, 0, -200); // Behind bed
+                        groupRef.current.position.set(0, 0, -10); // Behind bed (Very Close)
                         groupRef.current.rotation.z = Math.random() * Math.PI * 2;
 
                         // Random offset

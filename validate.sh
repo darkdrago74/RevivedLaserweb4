@@ -29,7 +29,7 @@ fi
 # 2. Install Everything
 echo "[Step 2] Installing application..."
 if [ -f "./install.sh" ]; then
-    sudo ./install.sh
+    sudo AUTOBOOT=no ./install.sh
 else
     echo "Error: install.sh not found."
     exit 1
@@ -83,13 +83,55 @@ else
     exit 1
 fi
 
-# 6. Stop Server
-echo "[Step 6] Stopping server..."
+
+# ... (Previous steps)
+
+echo "✅ Direct 'npm start' validation passed."
+
+# 6. Stop Server (First Run)
+echo "[Step 6] Stopping server (Run 1)..."
 kill $SERVER_PID 2>/dev/null || true
-# Kill children just in case (concurrently)
 pkill -P $SERVER_PID 2>/dev/null || true
 wait $SERVER_PID 2>/dev/null || true
 
+# 7. Start via Global Command
+echo "[Step 7] Testing global 'lzrcnc' command..."
+if command -v lzrcnc &> /dev/null; then
+    lzrcnc > "$LOG_FILE" 2>&1 &
+    GLOBAL_PID=$!
+    echo "Global CMD Process ID: $GLOBAL_PID"
+else
+    echo "❌ 'lzrcnc' command not found in PATH."
+    exit 1
+fi
+
+# 8. Wait for Startup (Global)
+echo "[Step 8] Waiting for server (Run 2)..."
+COUNT=0
+while [ $COUNT -lt $MAX_RETRIES ]; do
+    if curl -s "$URL" > /dev/null; then
+        echo "Server is up (Global Command)!"
+        break
+    fi
+    sleep 2
+    COUNT=$((COUNT+1))
+done
+
+if [ $COUNT -eq $MAX_RETRIES ]; then
+    echo "❌ Timeout waiting for global command server."
+    echo "Last 50 lines of log:"
+    tail -n 50 "$LOG_FILE"
+    kill $GLOBAL_PID 2>/dev/null || true
+    exit 1
+fi
+
+# 9. Final Cleanup
+echo "[Step 9] Stopping server (Run 2)..."
+kill $GLOBAL_PID 2>/dev/null || true
+pkill -P $GLOBAL_PID 2>/dev/null || true
+wait $GLOBAL_PID 2>/dev/null || true
+
 echo "=========================================="
-echo "Validation Successful!"
+echo "Validation Successful! (Both methods)"
 echo "=========================================="
+

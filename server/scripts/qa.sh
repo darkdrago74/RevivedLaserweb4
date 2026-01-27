@@ -2,7 +2,7 @@
 set -e
 
 echo "=========================================="
-echo "      RevivedLaserweb4 QA Agent"
+echo "      LzrCnc QA Agent"
 echo "=========================================="
 echo "Date: $(date)"
 

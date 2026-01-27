@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, OrthographicCamera, Bounds } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, OrthographicCamera } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import MachineBed from './MachineBed';
 import MachineHead from './MachineHead';
@@ -16,16 +16,22 @@ interface VisualizerSceneProps {
     };
     gcode?: string[];
     laserBeamEnabled?: boolean;
+    machineSettings?: any;
 }
 
-const VisualizerScene: React.FC<VisualizerSceneProps> = ({ machinePos, limits, gcode = [], laserBeamEnabled = true }) => {
+const VisualizerScene: React.FC<VisualizerSceneProps> = ({ machinePos, limits, gcode = [], laserBeamEnabled = true, machineSettings }) => {
     const [is2D, setIs2D] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Calculate Bed Center for Auto-Fit
+    // Calculate Bed Center
     const xMax = limits?.x?.max || 200;
     const yMax = limits?.y?.max || 200;
-    const center = [xMax / 2, yMax / 2, 0] as [number, number, number];
+
+    // Mapped Center in World Space (Rotated -90 X)
+    // CNC (x, y, 0) -> World (x, 0, y)
+    const centerWorld = [xMax / 2, 0, yMax / 2] as [number, number, number];
+
+    const origin = machineSettings?.workbench?.origin || 'bottom-left';
 
     return (
         <div
@@ -37,45 +43,52 @@ const VisualizerScene: React.FC<VisualizerSceneProps> = ({ machinePos, limits, g
                     <OrthographicCamera
                         key="2d-cam-final"
                         makeDefault
-                        position={[center[0], center[1], 1000]}
-                        rotation={[0, 0, 0]}
-                        zoom={10} // Bounds will override
+                        // Top-Down View: Look from +Y (World Up) down to XZ Plane
+                        position={[centerWorld[0], 1000, centerWorld[2]]}
+                        rotation={[-Math.PI / 2, 0, 0]}
+                        zoom={10}
                         near={-5000}
                         far={5000}
-                        up={[0, 1, 0]}
+                        up={[0, 0, -1]} // Adjust up vector for 2D orientation if needed
                     />
                 ) : (
                     <PerspectiveCamera
                         key="3d-cam"
                         makeDefault
-                        position={[xMax / 2, -yMax, yMax * 1.5]}
-                        up={[0, 0, 1]}
+                        // Isometric: Center X, High Y (Up), Positive Z (Front)
+                        position={[xMax / 2, Math.max(xMax, yMax) * 1.5, yMax * 1.5]}
+                        up={[0, 1, 0]} // Standard Three.js Up
+                        fov={45}
+                        near={1}
+                        far={5000}
                     />
                 )}
 
                 <OrbitControls
                     key={is2D ? '2d-controls' : '3d-controls'}
                     makeDefault
-                    target={center}
+                    target={centerWorld}
                     enableRotate={!is2D}
                     enableZoom={true}
                     enablePan={true}
+                    minDistance={10}
+                    maxDistance={2000}
                 />
 
                 <ambientLight intensity={0.5} />
-                <pointLight position={[100, 100, 100]} intensity={1} />
+                <pointLight position={[100, 200, 100]} intensity={0.8} />
 
-                {/* Post Processing for Glow */}
+                {/* Post Processing */}
                 <EffectComposer enableNormalPass={false}>
                     <Bloom
-                        luminanceThreshold={1} // Only very bright things glow
+                        luminanceThreshold={1}
                         mipmapBlur
                         intensity={2.5}
                         radius={0.8}
                     />
                 </EffectComposer>
 
-                {/* Background Laser Animation */}
+                {/* Background Laser Animation (Screen Space or World Space?) - Keep as is for now */}
                 {laserBeamEnabled && (
                     <>
                         <BackgroundLaser delay={0} />
@@ -83,11 +96,17 @@ const VisualizerScene: React.FC<VisualizerSceneProps> = ({ machinePos, limits, g
                     </>
                 )}
 
-                <Bounds fit={is2D} clip={is2D} observe={is2D} margin={1.2}>
-                    <MachineBed limits={limits} />
+                {/* ROTATE ENTIRE CONTENT TO MAP CNC-Z TO WORLD-Y */}
+                <group rotation={[-Math.PI / 2, 0, 0]}>
+                    <MachineBed
+                        limits={limits}
+                        visible={machineSettings?.workbench?.showWorkbench}
+                        origin={origin}
+                        axesSettings={machineSettings?.axes}
+                    />
                     <MachineHead x={machinePos.x} y={machinePos.y} z={machinePos.z} />
                     <GCodeViewer gcode={gcode} />
-                </Bounds>
+                </group>
             </Canvas>
 
             {/* View Toggle & Controls */}
@@ -99,12 +118,18 @@ const VisualizerScene: React.FC<VisualizerSceneProps> = ({ machinePos, limits, g
                 </div>
             </div>
 
-            <div className="absolute top-2 left-[120px] pointer-events-auto">
+            <div className="absolute top-2 left-[120px] pointer-events-auto flex flex-col gap-2">
                 <button
                     onClick={() => setIs2D(!is2D)}
                     className="bg-gray-800 hover:bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 shadow-md font-bold"
                 >
                     {is2D ? 'SWITCH TO 3D' : 'SWITCH TO 2D'}
+                </button>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="bg-gray-800 hover:bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 shadow-md font-bold"
+                >
+                    RESET VIEW
                 </button>
             </div>
         </div>

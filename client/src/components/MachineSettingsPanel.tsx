@@ -1,41 +1,175 @@
 import { useState, useEffect } from 'react';
 import { Save, Upload, Download, RefreshCw, LayoutTemplate, Box, ArrowLeftRight, Eye } from 'lucide-react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, PerspectiveCamera, Html } from '@react-three/drei';
+import * as THREE from 'three';
+import type { MachineSettings, AxisSettings, WorkbenchSettings } from '../types';
 
-interface AxisSettings {
-    visible: boolean;
-    min: number;
-    max: number;
-    direction: number;
-    reversed: boolean;
+// ... (keep MoveIcon)
+
+function AxisVisualizer({ settings, onUpdateOrigin }: { settings: MachineSettings, onUpdateOrigin: (o: any) => void, updateAxis?: any }) {
+    const w = settings.workbench.width;
+    const h = settings.workbench.height;
+    const origin = settings.workbench.origin;
+
+    // visual bed dimensions
+    const bedW = w;
+    const bedH = h;
+
+    return (
+        <Canvas>
+            <PerspectiveCamera makeDefault position={[0, -bedH * 1.5, bedW * 1.5]} fov={50} />
+            <OrbitControls enableZoom={true} enablePan={true} maxPolarAngle={Math.PI / 2} />
+            <ambientLight intensity={0.5} />
+            <pointLight position={[100, 100, 100]} />
+
+            {/* Bed centered at 0,0 for easier viewing */}
+            {/* Actual Machine Coordinates relative to bed depend on origin */}
+            <SettingsScene
+                w={w} h={h}
+                origin={origin}
+                settings={settings}
+                onUpdateOrigin={onUpdateOrigin}
+            />
+        </Canvas>
+    )
 }
 
-interface WorkbenchSettings {
-    width: number;
-    height: number;
-    depth: number;
-    origin: 'bottom-left' | 'top-left' | 'center';
-    showWorkbench: boolean;
+function SettingsScene({ w, h, origin, settings, onUpdateOrigin }: { w: number, h: number, origin: string, settings: MachineSettings, onUpdateOrigin: (o: any) => void }) {
+    // Bed Mesh (Centered)
+    // We visualize the Bed as a static object in the center of the viewer
+    // We move the "Origin Marker" to the correct corner relative to this bed
+
+    // Corners relative to center (0,0)
+    // Corners relative to center (0,0)
+    const BL = [-w / 2, -h / 2, 0];
+    const TL = [-w / 2, h / 2, 0];
+    const TR = [w / 2, h / 2, 0];
+    const BR = [w / 2, -h / 2, 0];
+
+    // Current Origin Position
+    let originPos = BL;
+    // Default Directions: ALWAYS Positive (Right/Up) unless settings.reversed is true
+    // We do NOT flip direction based on origin position anymore, per user request.
+    const xDir = 1;
+    const yDir = 1;
+    const zDir = 1;
+
+    if (origin === 'top-left') {
+        originPos = TL;
+    } else if (origin === 'top-right') {
+        originPos = TR;
+    } else if (origin === 'bottom-right') {
+        originPos = BR;
+    } else {
+        // bottom-left (default)
+        originPos = BL;
+    }
+
+    // Apply "Reversed" overrides
+    // If Logic is Reversed, the positive movement is opposite to standard
+    const xRev = settings.axes.x.reversed ? -1 : 1;
+    const yRev = settings.axes.y.reversed ? -1 : 1;
+    const zRev = settings.axes.z.reversed ? -1 : 1;
+
+    // Final Directions
+    const xVec = xDir * xRev;
+    const yVec = yDir * yRev;
+    const zVec = zDir * zRev;
+
+    return (
+        <group rotation={[-Math.PI / 4, 0, 0]}> {/* Tilt the whole assembly for better angle */}
+            {/* Bed Plate */}
+            <mesh receiveShadow>
+                <boxGeometry args={[w, h, 2]} />
+                <meshStandardMaterial color="#e5e7eb" roughness={0.5} />
+            </mesh>
+            <gridHelper args={[Math.max(w, h), 10]} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 1.1]} />
+
+            {/* Clickable Origin Selectors */}
+            <OriginSelector pos={BL} active={origin === 'bottom-left'} onClick={() => onUpdateOrigin('bottom-left')} label="BL" />
+            <OriginSelector pos={TL} active={origin === 'top-left'} onClick={() => onUpdateOrigin('top-left')} label="TL" />
+            <OriginSelector pos={TR} active={origin === 'top-right'} onClick={() => onUpdateOrigin('top-right')} label="TR" />
+            <OriginSelector pos={BR} active={origin === 'bottom-right'} onClick={() => onUpdateOrigin('bottom-right')} label="BR" />
+
+
+            {/* The BIG Axis Marker at CURRENT Origin */}
+            <group position={new THREE.Vector3(...originPos).add(new THREE.Vector3(0, 0, 2))}>
+                <AxisArrow dir={[xVec, 0, 0]} color="red" label="X+" length={40} />
+                <AxisArrow dir={[0, yVec, 0]} color="green" label="Y+" length={40} />
+                <AxisArrow dir={[0, 0, zVec]} color="blue" label="Z+" length={40} />
+                <mesh>
+                    <sphereGeometry args={[3]} />
+                    <meshStandardMaterial color="white" />
+                </mesh>
+            </group>
+        </group>
+    );
 }
 
-interface MachineSettings {
-    workbench: WorkbenchSettings;
-    axes: {
-        x: AxisSettings;
-        y: AxisSettings;
-        z: AxisSettings;
-    };
-    macros: any[];
+function OriginSelector({ pos, active, onClick, label }: any) {
+    return (
+        <group position={pos}>
+            <mesh onClick={(e) => { e.stopPropagation(); onClick(); }}>
+                <sphereGeometry args={[5]} />
+                <meshStandardMaterial color={active ? "#06b6d4" : "#475569"} />
+            </mesh>
+            <Html center position={[0, 0, 10]}>
+                <div
+                    className={`text-xs font-bold cursor-pointer ${active ? 'text-cyan-400' : 'text-gray-500'} select-none`}
+                    onClick={onClick}
+                >
+                    {label}
+                </div>
+            </Html>
+        </group>
+    )
+}
+
+function AxisArrow({ dir, color, label, length }: any) {
+    // dir is vector [x, y, z]
+    // Create quaternion to rotate Cylinder(0,1,0) to dir
+    const direction = new THREE.Vector3(...dir).normalize();
+    // const origin = new THREE.Vector3(0, 0, 0);
+
+    // We can just use ArrowHelper primitive or construct custom thick arrow
+    // ArrowHelper lines are thin. User wants "2 times bigger". 
+    // Let's build custom mesh.
+
+    // Rotate Up (0,1,0) to target direction
+    const up = new THREE.Vector3(0, 1, 0);
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(up, direction);
+
+    return (
+        <group quaternion={quaternion}>
+            <mesh position={[0, length / 2, 0]}>
+                <cylinderGeometry args={[3, 3, length, 12]} />
+                <meshStandardMaterial color={color} />
+            </mesh>
+            <mesh position={[0, length + 2, 0]}>
+                <coneGeometry args={[6, 12, 16]} />
+                <meshStandardMaterial color={color} />
+            </mesh>
+
+            {/* Text Label */}
+            <Html position={[0, length + 10, 0]} center>
+                <div style={{ color: color, fontWeight: 'bold', fontSize: '10px' }}>{label}</div>
+            </Html>
+        </group>
+    )
+
 }
 
 interface MachineSettingsPanelProps {
     status: any; // Using any for status to avoid circular dependency or complex type import for now
     laserBeamEnabled: boolean;
     setLaserBeamEnabled: (enabled: boolean) => void;
+    onSettingsChange?: (settings: MachineSettings) => void;
 }
 
-const API_URL = 'http://localhost:3000';
+const API_URL = import.meta.env.DEV ? 'http://localhost:3000' : '';
 
-export default function MachineSettingsPanel({ status, laserBeamEnabled, setLaserBeamEnabled }: MachineSettingsPanelProps) {
+export default function MachineSettingsPanel({ status, laserBeamEnabled, setLaserBeamEnabled, onSettingsChange }: MachineSettingsPanelProps) {
     const [settings, setSettings] = useState<MachineSettings | null>(null);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -43,6 +177,13 @@ export default function MachineSettingsPanel({ status, laserBeamEnabled, setLase
     useEffect(() => {
         fetchSettings();
     }, []);
+
+    // Emit settings changes to parent for live preview
+    useEffect(() => {
+        if (settings && onSettingsChange) {
+            onSettingsChange(settings);
+        }
+    }, [settings, onSettingsChange]);
 
     const fetchSettings = async () => {
         setLoading(true);
@@ -90,6 +231,33 @@ export default function MachineSettingsPanel({ status, laserBeamEnabled, setLase
                 [axis]: { ...settings.axes[axis], [key]: value }
             }
         });
+    };
+
+    const [updateInfo, setUpdateInfo] = useState<{ available: boolean, currentVersion: string, remoteVersion: string } | null>(null);
+    const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+    const checkUpdates = async () => {
+        setCheckingUpdate(true);
+        try {
+            const res = await fetch(`${API_URL}/api/system/update/check`);
+            const data = await res.json();
+            setUpdateInfo(data);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setCheckingUpdate(false);
+        }
+    };
+
+    const handleUpdate = async () => {
+        if (!confirm("This will update the software and restart the server. Continue?")) return;
+        try {
+            await fetch(`${API_URL}/api/system/update/apply`, { method: 'POST' });
+            alert("Update started. Server is restarting... Page will reload in 10s.");
+            setTimeout(() => window.location.reload(), 10000);
+        } catch (e) {
+            alert("Update failed.");
+        }
     };
 
     // Placeholder for Import functions
@@ -177,70 +345,100 @@ export default function MachineSettingsPanel({ status, laserBeamEnabled, setLase
 
                 {/* Visualizer Mockup (Simple SVG) */}
                 <div className="w-full aspect-video bg-slate-900 rounded border border-white/5 relative flex items-center justify-center overflow-hidden">
-                    <AxisVisualizer settings={settings} onUpdateOrigin={(o) => updateWorkbench('origin', o)} />
+                    <AxisVisualizer settings={settings} onUpdateOrigin={(o) => updateWorkbench('origin', o)} updateAxis={updateAxis} />
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
+                    {/* Header */}
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-2 border-b border-white/5 pb-1">
+                        <span>Axis</span>
+                        <span>Offset from Marker (mm)</span>
+                        <span>Direction</span>
+                    </div>
+
                     {/* X Axis */}
-                    <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                    <div className="flex items-center justify-between bg-white/5 p-2 rounded">
                         <div className="flex items-center gap-2">
-                            <span className="text-red-500 font-bold">X</span>
-                            <span className="text-gray-400 text-xs">{settings.axes.x.max}mm</span>
+                            <span className="text-red-500 font-bold w-4">X</span>
+                            <input
+                                type="number"
+                                value={settings.axes.x.offset || 0}
+                                onChange={e => updateAxis('x', 'offset', parseFloat(e.target.value))}
+                                className="w-16 bg-transparent border-b border-white/20 text-white text-xs text-center focus:border-cyan-500 outline-none"
+                                placeholder="0"
+                            />
                         </div>
-                        <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-500 flex items-center gap-1 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={settings.axes.x.reversed}
-                                    onChange={e => updateAxis('x', 'reversed', e.target.checked)}
-                                    className="accent-cyan-500"
-                                /> Reverse
-                            </label>
-                        </div>
+                        <label className="text-xs text-gray-400 flex items-center gap-2 cursor-pointer hover:text-white" title="Invert Positive Direction">
+                            <input
+                                type="checkbox"
+                                checked={settings.axes.x.reversed}
+                                onChange={e => updateAxis('x', 'reversed', e.target.checked)}
+                                className="accent-red-500"
+                            />
+                            Reverse +Dir
+                        </label>
                     </div>
 
                     {/* Y Axis */}
-                    <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                    <div className="flex items-center justify-between bg-white/5 p-2 rounded">
                         <div className="flex items-center gap-2">
-                            <span className="text-green-500 font-bold">Y</span>
-                            <span className="text-gray-400 text-xs">{settings.axes.y.max}mm</span>
+                            <span className="text-green-500 font-bold w-4">Y</span>
+                            <input
+                                type="number"
+                                value={settings.axes.y.offset || 0}
+                                onChange={e => updateAxis('y', 'offset', parseFloat(e.target.value))}
+                                className="w-16 bg-transparent border-b border-white/20 text-white text-xs text-center focus:border-cyan-500 outline-none"
+                                placeholder="0"
+                            />
                         </div>
-                        <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-500 flex items-center gap-1 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={settings.axes.y.reversed}
-                                    onChange={e => updateAxis('y', 'reversed', e.target.checked)}
-                                    className="accent-cyan-500"
-                                /> Reverse
-                            </label>
-                        </div>
+                        <label className="text-xs text-gray-400 flex items-center gap-2 cursor-pointer hover:text-white" title="Invert Positive Direction">
+                            <input
+                                type="checkbox"
+                                checked={settings.axes.y.reversed}
+                                onChange={e => updateAxis('y', 'reversed', e.target.checked)}
+                                className="accent-green-500"
+                            />
+                            Reverse +Dir
+                        </label>
                     </div>
 
                     {/* Z Axis */}
-                    <div className="flex items-center justify-between pb-2">
+                    <div className="flex items-center justify-between bg-white/5 p-2 rounded">
                         <div className="flex items-center gap-2">
-                            <span className="text-blue-500 font-bold">Z</span>
-                            <input
-                                type="checkbox"
-                                checked={settings.axes.z.visible}
-                                onChange={e => updateAxis('z', 'visible', e.target.checked)}
-                                className="accent-cyan-500"
-                            />
-                            <span className="text-gray-400 text-xs">{settings.axes.z.visible ? `${settings.axes.z.max}mm` : '(Disabled)'}</span>
+                            <span className="text-blue-500 font-bold w-4">Z</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-400 text-xs w-12">{settings.axes.z.max}mm</span>
+                                <label className="text-[10px] text-gray-500 flex items-center gap-1">
+                                    <input
+                                        type="checkbox"
+                                        checked={settings.axes.z.visible}
+                                        onChange={e => updateAxis('z', 'visible', e.target.checked)}
+                                        className="accent-gray-500"
+                                    />
+                                    Enable
+                                </label>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            {settings.axes.z.visible && (
-                                <label className="text-xs text-gray-500 flex items-center gap-1 cursor-pointer">
+                        {settings.axes.z.visible && (
+                            <div className="flex items-center gap-4">
+                                <input
+                                    type="number"
+                                    value={settings.axes.z.offset || 0}
+                                    onChange={e => updateAxis('z', 'offset', parseFloat(e.target.value))}
+                                    className="w-12 bg-transparent border-b border-white/20 text-white text-xs text-center focus:border-cyan-500 outline-none"
+                                    placeholder="Off"
+                                />
+                                <label className="text-xs text-gray-400 flex items-center gap-2 cursor-pointer hover:text-white" title="Invert Positive Direction">
                                     <input
                                         type="checkbox"
                                         checked={settings.axes.z.reversed}
                                         onChange={e => updateAxis('z', 'reversed', e.target.checked)}
-                                        className="accent-cyan-500"
-                                    /> Reverse
+                                        className="accent-blue-500"
+                                    />
+                                    Reverse +Dir
                                 </label>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </section>
@@ -285,6 +483,27 @@ export default function MachineSettingsPanel({ status, laserBeamEnabled, setLase
                 </div>
             </section>
 
+            {/* System Update */}
+            <section className="bg-slate-800/50 p-4 rounded-lg border border-white/10 space-y-4">
+                <h4 className="text-md font-semibold text-gray-200 flex items-center gap-2">
+                    <RefreshCw size={16} /> System Updates
+                </h4>
+                <div className="flex items-center justify-between">
+                    <span className="text-gray-400 text-xs">
+                        Current Ver: {updateInfo?.currentVersion || 'Unknown'}
+                    </span>
+                    {updateInfo?.available ? (
+                        <button onClick={handleUpdate} className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs flex items-center gap-2">
+                            <Download size={14} /> Update to {updateInfo.remoteVersion}
+                        </button>
+                    ) : (
+                        <button onClick={checkUpdates} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs flex items-center gap-2">
+                            <RefreshCw size={14} className={checkingUpdate ? "animate-spin" : ""} /> {updateInfo ? 'Up to date' : 'Check for Updates'}
+                        </button>
+                    )}
+                </div>
+            </section>
+
             {/* System Info */}
             <div className="bg-slate-800/50 p-4 rounded-lg border border-white/10 opacity-75">
                 <h3 className="text-md font-semibold text-white mb-4">System Info</h3>
@@ -312,73 +531,4 @@ function MoveIcon() {
 }
 
 
-function AxisVisualizer({ settings, onUpdateOrigin }: { settings: MachineSettings, onUpdateOrigin: (o: any) => void }) {
-    // Determine aspect ratio for SVG
-    const w = settings.workbench.width;
-    const h = settings.workbench.height;
 
-
-
-    const origin = settings.workbench.origin;
-
-    // Origins: bottom-left (default), top-left, center
-    const isBL = origin === 'bottom-left';
-    const isTL = origin === 'top-left';
-    const isCenter = origin === 'center';
-
-    return (
-        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full p-4" style={{ transform: 'scale(0.8)' }}>
-            {/* Bed Outline */}
-            <rect x="0" y="0" width={w} height={h} fill="#1e293b" stroke="#475569" strokeWidth="2" />
-
-            {/* Grid (simplified) */}
-            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-                <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#334155" strokeWidth="1" />
-            </pattern>
-            <rect x="0" y="0" width={w} height={h} fill="url(#grid)" />
-
-            {/* Origin Markers (Clickable) */}
-            {/* Bottom-Left */}
-            <circle
-                cx="0" cy={h} r={10}
-                fill={isBL ? "#06b6d4" : "#475569"}
-                className="cursor-pointer hover:fill-cyan-400 transition-colors"
-                onClick={() => onUpdateOrigin('bottom-left')}
-            />
-            {/* Top-Left */}
-            <circle
-                cx="0" cy="0" r={10}
-                fill={isTL ? "#06b6d4" : "#475569"}
-                className="cursor-pointer hover:fill-cyan-400 transition-colors"
-                onClick={() => onUpdateOrigin('top-left')}
-            />
-            {/* Center */}
-            <circle
-                cx={w / 2} cy={h / 2} r={10}
-                fill={isCenter ? "#06b6d4" : "#475569"}
-                className="cursor-pointer hover:fill-cyan-400 transition-colors"
-                onClick={() => onUpdateOrigin('center')}
-            />
-
-            {/* Arrows representing Axes based on Origin */}
-            {isBL && (
-                <g transform={`translate(0, ${h}) scale(1, -1)`}>
-                    <line x1="0" y1="0" x2="50" y2="0" stroke="red" strokeWidth="4" markerEnd="url(#arrow)" />
-                    <line x1="0" y1="0" x2="0" y2="50" stroke="green" strokeWidth="4" markerEnd="url(#arrow)" />
-                </g>
-            )}
-            {isTL && (
-                <g transform={`translate(0, 0)`}>
-                    <line x1="0" y1="0" x2="50" y2="0" stroke="red" strokeWidth="4" />
-                    <line x1="0" y1="0" x2="0" y2="50" stroke="green" strokeWidth="4" />
-                </g>
-            )}
-            {isCenter && (
-                <g transform={`translate(${w / 2}, ${h / 2}) scale(1, -1)`}>
-                    <line x1="0" y1="0" x2="50" y2="0" stroke="red" strokeWidth="4" />
-                    <line x1="0" y1="0" x2="0" y2="50" stroke="green" strokeWidth="4" />
-                </g>
-            )}
-        </svg>
-    )
-}
